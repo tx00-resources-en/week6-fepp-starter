@@ -1,0 +1,229 @@
+name: Frontend Iterations - Tests
+
+on:
+  push:
+    branches: [ main, master, develop ]
+
+jobs:
+  detect-iteration:
+    runs-on: ubuntu-latest
+    outputs:
+      iteration: ${{ steps.detect.outputs.iteration }}
+      test-file: ${{ steps.detect.outputs.test-file }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: Detect iteration from commit message
+      id: detect
+      run: |
+        COMMIT_MSG=$(git log -1 --pretty=%B)
+        echo "Commit message: $COMMIT_MSG"
+        
+        # Check for iteration 1
+        if echo "$COMMIT_MSG" | grep -qiE '\[iter1\]|\[iteration-1\]|\[iteration 1\]'; then
+          echo "iteration=1" >> $GITHUB_OUTPUT
+          echo "test-file=iteration1.test.jsx" >> $GITHUB_OUTPUT
+          echo "✅ Detected Iteration 1 commit"
+        # Check for iteration 2
+        elif echo "$COMMIT_MSG" | grep -qiE '\[iter2\]|\[iteration-2\]|\[iteration 2\]'; then
+          echo "iteration=2" >> $GITHUB_OUTPUT
+          echo "test-file=iteration2.test.jsx" >> $GITHUB_OUTPUT
+          echo "✅ Detected Iteration 2 commit"
+        # Check for iteration 3
+        elif echo "$COMMIT_MSG" | grep -qiE '\[iter3\]|\[iteration-3\]|\[iteration 3\]'; then
+          echo "iteration=3" >> $GITHUB_OUTPUT
+          echo "test-file=iteration3.test.jsx" >> $GITHUB_OUTPUT
+          echo "✅ Detected Iteration 3 commit"
+        # Check for iteration 4
+        elif echo "$COMMIT_MSG" | grep -qiE '\[iter4\]|\[iteration-4\]|\[iteration 4\]'; then
+          echo "iteration=4" >> $GITHUB_OUTPUT
+          echo "test-file=iteration4.test.jsx" >> $GITHUB_OUTPUT
+          echo "✅ Detected Iteration 4 commit"
+        # Check for iteration 5
+        elif echo "$COMMIT_MSG" | grep -qiE '\[iter5\]|\[iteration-5\]|\[iteration 5\]'; then
+          echo "iteration=5" >> $GITHUB_OUTPUT
+          echo "test-file=iteration5.test.jsx" >> $GITHUB_OUTPUT
+          echo "✅ Detected Iteration 5 commit"
+        # Check for iteration 6
+        elif echo "$COMMIT_MSG" | grep -qiE '\[iter6\]|\[iteration-6\]|\[iteration 6\]'; then
+          echo "iteration=6" >> $GITHUB_OUTPUT
+          echo "test-file=iteration6.test.jsx" >> $GITHUB_OUTPUT
+          echo "✅ Detected Iteration 6 commit"
+        # Check for iteration 7
+        elif echo "$COMMIT_MSG" | grep -qiE '\[iter7\]|\[iteration-7\]|\[iteration 7\]'; then
+          echo "iteration=7" >> $GITHUB_OUTPUT
+          echo "test-file=iteration7.test.jsx" >> $GITHUB_OUTPUT
+          echo "✅ Detected Iteration 7 commit"
+        # Check for iteration 8
+        elif echo "$COMMIT_MSG" | grep -qiE '\[iter8\]|\[iteration-8\]|\[iteration 8\]'; then
+          echo "iteration=8" >> $GITHUB_OUTPUT
+          echo "test-file=iteration8.test.jsx" >> $GITHUB_OUTPUT
+          echo "✅ Detected Iteration 8 commit"
+        # Check for iteration 9
+        elif echo "$COMMIT_MSG" | grep -qiE '\[iter9\]|\[iteration-9\]|\[iteration 9\]'; then
+          echo "iteration=9" >> $GITHUB_OUTPUT
+          echo "test-file=iteration9.test.jsx" >> $GITHUB_OUTPUT
+          echo "✅ Detected Iteration 9 commit"
+        else
+          echo "iteration=0" >> $GITHUB_OUTPUT
+          echo "test-file=" >> $GITHUB_OUTPUT
+          echo "ℹ️  No iteration tag detected in commit message"
+        fi
+
+  frontend-iteration-tests:
+    needs: detect-iteration
+    if: needs.detect-iteration.outputs.iteration != '0'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run Iteration ${{ needs.detect-iteration.outputs.iteration }} tests
+      id: test_run
+      working-directory: ./frontend
+      run: |
+        set +e  # Don't exit on error
+        npm test -- ${{ needs.detect-iteration.outputs.test-file }} 2>&1 | tee test_output.txt
+        TEST_EXIT=${PIPESTATUS[0]}
+        echo "test_exit_code=$TEST_EXIT" >> $GITHUB_OUTPUT
+        
+        # Check if tests actually failed by parsing output
+        if grep -E "Tests:.*failed" test_output.txt; then
+          echo "detected_failures=true" >> $GITHUB_OUTPUT
+        else
+          echo "detected_failures=false" >> $GITHUB_OUTPUT
+        fi
+        
+        exit 0  # Always succeed this step to allow checking results in next step
+
+    - name: Check test results
+      working-directory: ./frontend
+      run: |
+        TEST_EXIT=${{ steps.test_run.outputs.test_exit_code }}
+        HAS_FAILURES=${{ steps.test_run.outputs.detected_failures }}
+        
+        echo "Jest exit code: $TEST_EXIT"
+        echo "Detected failures: $HAS_FAILURES"
+        
+        # Check for test failures in output
+        if [ "$HAS_FAILURES" = "true" ]; then
+          echo "❌ Tests FAILED for Iteration ${{ needs.detect-iteration.outputs.iteration }}"
+          echo "Test output contains failed tests"
+          exit 1
+        elif grep -qE "Test Suites:.*failed" test_output.txt; then
+          echo "❌ Tests FAILED for Iteration ${{ needs.detect-iteration.outputs.iteration }}"
+          echo "Test suites failed"
+          exit 1
+        elif grep -E "Tests:.*failed" test_output.txt; then
+          echo "❌ Tests FAILED for Iteration ${{ needs.detect-iteration.outputs.iteration }}"
+          echo "Errors detected in test output"
+          exit 1
+        else
+          echo "✅ Tests PASSED for Iteration ${{ needs.detect-iteration.outputs.iteration }}"
+        fi
+
+    - name: Print test summary
+      if: always()
+      working-directory: ./frontend
+      run: |
+        HAS_FAILURES=${{ steps.test_run.outputs.detected_failures }}
+        
+        if [ "$HAS_FAILURES" = "true" ] || grep -qE "Test Suites:.*failed" test_output.txt; then
+          TEST_STATUS="❌ FAILED"
+        else
+          TEST_STATUS="✅ PASSED"
+        fi
+        
+        echo "## Iteration ${{ needs.detect-iteration.outputs.iteration }}: Frontend Tests [$TEST_STATUS]" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Dependencies installed" >> $GITHUB_STEP_SUMMARY
+        echo "$TEST_STATUS Tests executed for: \`${{ needs.detect-iteration.outputs.test-file }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Test Framework:** Vitest + React Testing Library" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit Pattern:** \`[iter${{ needs.detect-iteration.outputs.iteration }}]\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Iteration Descriptions:**" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.detect-iteration.outputs.iteration }}" = "1" ]; then
+          echo "- Project setup and environment configuration" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.detect-iteration.outputs.iteration }}" = "2" ]; then
+          echo "- Create useSignup hook and refactor SignupComponent" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.detect-iteration.outputs.iteration }}" = "3" ]; then
+          echo "- Create useLogin hook and refactor LoginComponent" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.detect-iteration.outputs.iteration }}" = "4" ]; then
+          echo "- Add password confirmation field" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.detect-iteration.outputs.iteration }}" = "5" ]; then
+          echo "- Use sessionStorage for tokens" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.detect-iteration.outputs.iteration }}" = "6" ]; then
+          echo "- Analyze login approaches (backend comparison)" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.detect-iteration.outputs.iteration }}" = "7" ]; then
+          echo "- Analyze signup approaches (backend comparison)" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.detect-iteration.outputs.iteration }}" = "8" ]; then
+          echo "- Extract useField hook in SignupComponent" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.detect-iteration.outputs.iteration }}" = "9" ]; then
+          echo "- Reuse useField in LoginComponent" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "For detailed documentation, see: [task.md](task.md)" >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: iteration${{ needs.detect-iteration.outputs.iteration }}-test-results
+        path: |
+          frontend/src/tests/
+          frontend/test_output.txt
+
+    - name: Comment on PR with results
+      if: always() && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '✅ Iteration ${{ needs.detect-iteration.outputs.iteration }} Frontend Tests Completed\n\nTests for ${{ needs.detect-iteration.outputs.test-file }} have been executed.\n\nCommit message detected: `[iter${{ needs.detect-iteration.outputs.iteration }}]`\n\nCheck the test results above.'
+          })
+
+  no-iteration-detected:
+    needs: detect-iteration
+    if: needs.detect-iteration.outputs.iteration == '0'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Notify no iteration detected
+      run: |
+        echo "⚠️ No iteration tag detected in commit message"
+        echo "Expected format: [iter1] through [iter9]"
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## ℹ️ No Iteration Tag Detected" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Your commit message did not contain an iteration tag." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Expected Format:** \`[iterN]\` where N is 1-9" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Example Commit Messages:**" >> $GITHUB_STEP_SUMMARY
+        echo "- \`git commit -m \"[iter1] Complete setup\"\`" >> $GITHUB_STEP_SUMMARY
+        echo "- \`git commit -m \"[iter2] Implement useSignup hook\"\`" >> $GITHUB_STEP_SUMMARY
+        echo "- \`git commit -m \"[iter3] Implement useLogin hook\"\`" >> $GITHUB_STEP_SUMMARY
+        echo "- \`git commit -m \"[iter4] Add password confirmation\"\`" >> $GITHUB_STEP_SUMMARY
+        echo "- \`git commit -m \"[iter5] Use sessionStorage for tokens\"\`" >> $GITHUB_STEP_SUMMARY
+        echo "- \`git commit -m \"[iter8] Extract useField hook\"\`" >> $GITHUB_STEP_SUMMARY
+        echo "- \`git commit -m \"[iter9] Reuse useField in another form\"\`" >> $GITHUB_STEP_SUMMARY
