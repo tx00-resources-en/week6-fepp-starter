@@ -7,7 +7,7 @@ on:
       - completed
 
 jobs:
-  generate-backend-report:
+  generate-frontend-report:
     runs-on: ubuntu-latest
     
     steps:
@@ -47,7 +47,6 @@ jobs:
         echo "" >> frontend-iteration-report.md
         echo "**Generated:** $(TZ=Europe/Helsinki date '+%d.%m.%Y %H:%M:%S')" >> frontend-iteration-report.md
         echo "**Triggered by:** [${{ github.actor }}](https://github.com/${{ github.actor }})" >> frontend-iteration-report.md
-        echo "**User ID:** ${{ github.actor_id }}" >> frontend-iteration-report.md
         echo "" >> frontend-iteration-report.md
         
         # Get all frontend iteration-related commits
@@ -56,7 +55,7 @@ jobs:
         
         for iter in 1 2 3 4 5 6 7 8 9; do
           echo "### Iteration $iter - Frontend" >> frontend-iteration-report.md
-          echo "" >> backend-iteration-report.md
+          echo "" >> frontend-iteration-report.md
           
           # Find commits with iteration tags
           COMMITS=$(git log --all --grep="\[iter$iter\]" --grep="\[iteration-$iter\]" --grep="\[iteration $iter\]" -i --pretty=format:"%h|%an|%ae|%ad|%s" --date=iso)
