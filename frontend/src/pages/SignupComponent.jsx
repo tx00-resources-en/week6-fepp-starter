@@ -57,3 +57,4 @@ const SignupComponent = ({ setIsAuthenticated }) => {
 };
 
 export default SignupComponent;
+

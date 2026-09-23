@@ -9,3 +9,4 @@ describe("Iteration 7 - README discussion present", () => {
     expect(content.trim().length).toBeGreaterThan(0);
   });
 });
+

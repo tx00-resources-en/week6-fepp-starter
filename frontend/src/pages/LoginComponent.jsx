@@ -57,3 +57,4 @@ const LoginComponent = ({ setIsAuthenticated }) => {
 };
 
 export default LoginComponent;
+

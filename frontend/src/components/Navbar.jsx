@@ -26,3 +26,4 @@ function Navbar({ setIsAuthenticated, isAuthenticated }) {
 }
 
 export default Navbar;
+
